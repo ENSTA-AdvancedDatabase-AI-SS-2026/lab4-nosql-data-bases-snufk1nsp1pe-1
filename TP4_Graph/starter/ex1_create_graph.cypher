@@ -34,29 +34,60 @@ MERGE (:Cours {code: cours.code, intitule: cours.intitule,
                credits: cours.credits, departement: cours.dept});
 
 // ─── 1.4 : Créer les étudiants ────────────────────────────────────────────────
-// TODO: Créer 50 étudiants avec données algériennes réalistes
-// Utiliser UNWIND avec une liste de maps
-// Universités : USTHB, UMBB, USTO, UMC, UBMA
-// Filieres : Informatique, Mathématiques, Electronique, Telecoms, GL
-
-UNWIND [
-  // TODO: Ajouter 50 étudiants
-  {id: "E001", prenom: "Ahmed", nom: "Bensalem", universite: "USTHB", 
-   filiere: "Informatique", annee: 3, ville: "Alger"},
-  {id: "E002", prenom: "Fatima", nom: "Ouali", universite: "USTHB",
-   filiere: "Informatique", annee: 3, ville: "Alger"}
-  // TODO: Continuer...
-] AS data
-MERGE (e:Etudiant {id: data.id})
-SET e += data;
+WITH [
+  "Ahmed","Fatima","Yasmina","Mohamed","Imane","Samir","Nadia","Amine","Sofia","Nour",
+  "Karim","Lina","Riad","Amina","Walid","Meriem","Yacine","Ikram","Hocine","Chaima"
+] AS prenoms,
+["Bensalem","Ouali","Mansouri","Khellaf","Benali","Rezig","Hamdi","Ait Ali","Bouzid","Meziane"] AS noms,
+["USTHB","UMBB","USTO","UMC","UBMA"] AS unis,
+["Informatique","Mathématiques","Electronique","Telecoms","GL"] AS filieres,
+["Alger","Boumerdes","Oran","Constantine","Annaba"] AS villes
+UNWIND range(1, 50) AS i
+MERGE (e:Etudiant {id: "E" + right("00" + toString(i), 3)})
+SET e.prenom = prenoms[(i - 1) % size(prenoms)],
+    e.nom = noms[(i - 1) % size(noms)],
+    e.universite = unis[(i - 1) % size(unis)],
+    e.filiere = filieres[(i - 1) % size(filieres)],
+    e.annee = 1 + (i % 5),
+    e.ville = villes[(i - 1) % size(villes)];
 
 // ─── 1.5 : Créer les relations ────────────────────────────────────────────────
-// TODO: Relations CONNAIT entre étudiants
-// Assurer que le graphe est connexe (pas d'étudiants isolés)
+// CONNAIT : chaîne + liens aléatoires pour garantir la connexité
+MATCH (e:Etudiant)
+WITH e ORDER BY e.id
+WITH collect(e) AS etudiants
+UNWIND range(0, size(etudiants) - 2) AS i
+WITH etudiants[i] AS a, etudiants[i + 1] AS b
+MERGE (a)-[:CONNAIT {depuis: 2022 + (i % 4), contexte: "Université"}]->(b)
+MERGE (b)-[:CONNAIT {depuis: 2022 + (i % 4), contexte: "Université"}]->(a);
 
-// TODO: Relations SUIT (étudiant → cours) avec notes
+MATCH (a:Etudiant), (b:Etudiant)
+WHERE a.id < b.id AND rand() < 0.05
+MERGE (a)-[:CONNAIT {depuis: 2021 + toInteger(rand() * 5), contexte: "Club"}]->(b);
 
-// TODO: Relations MAITRISE (étudiant → compétence) avec niveaux
+// SUIT : chaque étudiant suit 2-3 cours
+MATCH (e:Etudiant), (c:Cours)
+WITH e, c WHERE rand() < 0.55
+MERGE (e)-[:SUIT {semestre: "S" + toString(1 + toInteger(rand() * 6)), note: 10 + toInteger(rand() * 10)}]->(c);
+
+// MAITRISE : 2-4 compétences par étudiant
+MATCH (e:Etudiant), (comp:Competence)
+WITH e, comp WHERE rand() < 0.35
+MERGE (e)-[:MAITRISE {niveau: ["Débutant","Intermédiaire","Avancé"][toInteger(rand() * 3)]}]->(comp);
+
+// Cours -> compétences requises
+MATCH (c:Cours {code: "INFO401"}), (comp:Competence {nom: "SQL"})
+MERGE (c)-[:REQUIERT]->(comp);
+MATCH (c:Cours {code: "INFO401"}), (comp:Competence {nom: "NoSQL"})
+MERGE (c)-[:REQUIERT]->(comp);
+MATCH (c:Cours {code: "INFO402"}), (comp:Competence {nom: "Python"})
+MERGE (c)-[:REQUIERT]->(comp);
+MATCH (c:Cours {code: "INFO402"}), (comp:Competence {nom: "Machine Learning"})
+MERGE (c)-[:REQUIERT]->(comp);
+MATCH (c:Cours {code: "INFO403"}), (comp:Competence {nom: "React"})
+MERGE (c)-[:REQUIERT]->(comp);
+MATCH (c:Cours {code: "INFO404"}), (comp:Competence {nom: "Linux"})
+MERGE (c)-[:REQUIERT]->(comp);
 
 // Vérification
 MATCH (n) RETURN labels(n)[0] AS type, count(n) AS total ORDER BY total DESC;
