@@ -15,7 +15,8 @@ def record_sale(r, product_id, quantity: int = 1):
     Utiliser ZINCRBY sur la clé LEADERBOARD_KEY
     """
     # TODO
-    pass
+    r.zincrby(LEADERBOARD_KEY, int(quantity), str(product_id))
+
 
 
 def get_top_products(r, n: int = 10) -> list:
@@ -25,7 +26,9 @@ def get_top_products(r, n: int = 10) -> list:
     Astuce : ZREVRANGE avec WITHSCORES
     """
     # TODO
-    pass
+    rows = r.zrevrange(LEADERBOARD_KEY, 0, n - 1, withscores=True)
+    return [{"product_id": pid, "sales": sales} for pid, sales in rows]
+
 
 
 def get_product_rank(r, product_id) -> Optional[int]:
@@ -34,7 +37,8 @@ def get_product_rank(r, product_id) -> Optional[int]:
     (1 = best seller, None si pas dans le classement)
     """
     # TODO: ZREVRANK retourne 0-based, convertir en 1-based
-    pass
+    rank = r.zrevrank(LEADERBOARD_KEY, str(product_id))
+    return (rank + 1) if rank is not None else None
 
 
 def get_products_between_ranks(r, start_rank: int, end_rank: int) -> list:
@@ -43,7 +47,11 @@ def get_products_between_ranks(r, start_rank: int, end_rank: int) -> list:
     Ex: rangs 3 à 7 → 5 produits
     """
     # TODO
-    pass
+    start_idx = max(0, start_rank - 1)
+    end_idx = max(start_idx, end_rank - 1)
+    rows = r.zrevrange(LEADERBOARD_KEY, start_idx, end_idx, withscores=True)
+    return [{"product_id": pid, "sales": sales} for pid, sales in rows]
+
 
 
 def simulate_sales_day(r, n_sales: int = 500):
