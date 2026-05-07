@@ -2,22 +2,25 @@
 -- Use Case : SmartGrid DZ - IoT Électrique
 
 -- ─── 1.1 : Créer le Keyspace ──────────────────────────────────────────────────
--- TODO: Créer le keyspace 'smartgrid' avec NetworkTopologyStrategy
+-- Créer le keyspace 'smartgrid' avec NetworkTopologyStrategy
 -- replication_factor: 3 (pour la production), 1 (pour le TP local)
 
--- CREATE KEYSPACE smartgrid
--- WITH replication = { ??? };
+CREATE KEYSPACE IF NOT EXISTS smartgrid
+WITH replication = {
+  'class': 'NetworkTopologyStrategy',
+  'datacenter1': 1
+};
 
 USE smartgrid;
 
 -- ─── 1.2 : Table mesures_par_capteur ──────────────────────────────────────────
 -- Requête cible : "Mesures du capteur X entre T1 et T2"
--- TODO: Définir la PRIMARY KEY correcte
+-- Définir la PRIMARY KEY correcte
 -- Penser : comment éviter les hot partitions avec 10 000 capteurs ?
 
 CREATE TABLE IF NOT EXISTS mesures_par_capteur (
   capteur_id   UUID,
-  -- TODO: Ajouter une colonne pour la date (bucket par jour)
+  date_jour    DATE,
   timestamp    TIMESTAMP,
   wilaya       TEXT,
   commune      TEXT,
@@ -28,15 +31,14 @@ CREATE TABLE IF NOT EXISTS mesures_par_capteur (
   temperature  FLOAT,
   alerte       BOOLEAN,
   code_alerte  TEXT,
-  -- TODO: Définir PRIMARY KEY ((partition), clustering...)
-  PRIMARY KEY (???)
+  PRIMARY KEY ((capteur_id, date_jour), timestamp)
 ) WITH CLUSTERING ORDER BY (timestamp DESC)
   AND default_time_to_live = 7776000;  -- 90 jours en secondes
 
 
 -- ─── 1.3 : Table alertes_par_wilaya ───────────────────────────────────────────
 -- Requête cible : "Alertes de la wilaya X le jour Y"
--- TODO: Concevoir la table
+-- Concevoir la table
 
 CREATE TABLE IF NOT EXISTS alertes_par_wilaya (
   wilaya       TEXT,
@@ -47,26 +49,25 @@ CREATE TABLE IF NOT EXISTS alertes_par_wilaya (
   description  TEXT,
   gravite      INT,   -- 1=info, 2=warning, 3=critique
   resolue      BOOLEAN,
-  -- TODO: PRIMARY KEY
-  PRIMARY KEY (???)
+  PRIMARY KEY ((wilaya, date_jour), timestamp, capteur_id)
 ) WITH CLUSTERING ORDER BY (timestamp DESC)
   AND default_time_to_live = 31536000;  -- 1 an
 
 
 -- ─── 1.4 : Table agregats_horaires ────────────────────────────────────────────
 -- Requête cible : "Consommation moyenne par heure pour le dashboard wilaya"
--- TODO: Concevoir la table avec les bonnes agrégations
+-- Concevoir la table avec les bonnes agrégations
 
 CREATE TABLE IF NOT EXISTS agregats_horaires (
   wilaya            TEXT,
+  date_jour         DATE,
   date_heure        TIMESTAMP,
   nb_capteurs       INT,
   puissance_moy_kw  FLOAT,
   puissance_max_kw  FLOAT,
   puissance_min_kw  FLOAT,
   nb_alertes        INT,
-  -- TODO: PRIMARY KEY
-  PRIMARY KEY (???)
+  PRIMARY KEY ((wilaya, date_jour), date_heure)
 ) WITH CLUSTERING ORDER BY (date_heure DESC)
   AND default_time_to_live = 157680000;  -- 5 ans
 
